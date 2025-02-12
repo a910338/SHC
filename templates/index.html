@@ -24,7 +24,7 @@
       width: 90%;
       margin: 20px auto;
       border-collapse: collapse;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
       background-color: white;
     }
     table, th, td {
@@ -81,7 +81,7 @@
     }
     
     /* 按鈕樣式 */
-    button {
+    .btn {
       background-color: #007bff;
       color: #fff;
       border: none;
@@ -92,10 +92,9 @@
       transition: background-color 0.3s ease;
       margin: 5px;
     }
-    button:hover {
+    .btn:hover {
       background-color: #0056b3;
     }
-    /* 其他用途的按鈕 */
     .btn-danger {
       background-color: #dc3545;
     }
@@ -113,6 +112,14 @@
     }
     .btn-secondary:hover {
       background-color: #5a6268;
+    }
+    /* 按鈕容器 */
+    .btn-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 20px;
     }
     
     /* 響應式設計 */
@@ -147,12 +154,16 @@
     <input type="text" id="acrobat-base" placeholder="例如: 2020.013.20074">
     <label>KB 更新清單 (用逗號分隔)：</label>
     <input type="text" id="kb-list" placeholder="例如: KB5001330, KB5001335">
-    <br><br>
-	  <button class="btn btn-primary" onclick="compareAllVersions()">比對所有版本</button>
-	  <button class="btn btn-secondary" onclick="exportToExcel()">導出為Excel</button>
-	  <button class="btn btn-success" onclick="openAddModal()">新增資產</button>
   </div>
 
+  <!-- 按鈕容器 -->
+  <div class="btn-container">
+    <button class="btn btn-primary" onclick="compareAllVersions()">比對所有版本</button>
+    <button class="btn btn-secondary" onclick="exportToExcel()">導出為Excel</button>
+    <button class="btn btn-success" onclick="openAddModal()">新增資產</button>
+  </div>
+
+  <!-- 資料表格 -->
   <table id="data-table">
     <thead>
       <tr>
@@ -208,7 +219,7 @@
     </tbody>
   </table>
 
-  <!-- Modal 視窗 -->
+  <!-- Modal 視窗：新增/修改資產 -->
   <div id="assetModal" class="modal">
     <div class="modal-content">
       <span class="close" onclick="closeModal()">&times;</span>
@@ -241,10 +252,10 @@
     </div>
   </div>
 
-  <!-- 載入 xlsx.js 套件 -->
+  <!-- 載入 xlsx.js 套件 (用於匯出 Excel) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.1/xlsx.full.min.js"></script>
   <script>
-    // 顯示 Modal
+    // 取得 modal 元素
     const modal = document.getElementById('assetModal');
 
     // 開啟新增資產 Modal
@@ -257,6 +268,8 @@
       document.getElementById('acrobat-version').value = '';
       document.getElementById('winpatch-info').value = '';
       document.getElementById('antivirus-info').value = '';
+      // 新增模式下，設定儲存按鈕的 onclick 為 saveAsset
+      document.querySelector('button[onclick="saveAsset()"]').onclick = saveAsset;
       modal.style.display = "block";
     }
 
@@ -273,14 +286,13 @@
       document.getElementById('winpatch-info').value = cells[6].innerText;
       document.getElementById('antivirus-info').value = cells[7].innerText;
       modal.style.display = "block";
-
-      // 更新資產
+      // 修改模式下，設定儲存按鈕的 onclick 為 updateAsset，並傳入目前的 hostname
       document.querySelector('button[onclick="saveAsset()"]').onclick = function() {
         updateAsset(hostname);
       };
     }
 
-    // 儲存新增或修改資產
+    // 儲存新增資產 (POST /upload)
     function saveAsset() {
       const hostname = document.getElementById('hostname').value;
       const ipAddress = document.getElementById('ip-address').value;
@@ -315,9 +327,9 @@
         body: JSON.stringify(data),
       })
       .then(response => response.json())
-      .then(data => {
-        if (data.message) {
-          alert(data.message);
+      .then(result => {
+        if (result.message) {
+          alert(result.message);
           location.reload();
         } else {
           alert("新增資產失敗");
@@ -330,7 +342,7 @@
       closeModal();
     }
 
-    // 更新資產
+    // 更新資產 (PUT /update/<hostname>)
     function updateAsset(hostname) {
       const ipAddress = document.getElementById('ip-address').value;
       const java8Version = document.getElementById('java8-version').value;
@@ -358,9 +370,9 @@
         body: JSON.stringify(data),
       })
       .then(response => response.json())
-      .then(data => {
-        if (data.message) {
-          alert(data.message);
+      .then(result => {
+        if (result.message) {
+          alert(result.message);
           location.reload();
         } else {
           alert("更新資產失敗");
@@ -373,21 +385,61 @@
       closeModal();
     }
 
+    // 刪除資產 (DELETE /delete/<hostname>)
+    function deleteData(hostname) {
+      if (!confirm("確定要刪除 " + hostname + " 的資產嗎？")) {
+        return;
+      }
+      fetch(`/delete/${hostname}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(response => response.json())
+      .then(result => {
+        alert(result.message || "刪除資產失敗");
+        // 刪除成功後，將該筆資料從畫面移除
+        const row = document.getElementById('row-' + hostname);
+        if (row) { row.remove(); }
+      })
+      .catch(error => {
+        alert("刪除資產時發生錯誤");
+      });
+    }
+
     // 關閉 Modal
     function closeModal() {
       modal.style.display = "none";
     }
 
-    // 比對版本的函數
+    // 比對版本的函數，回傳 '✅' 表示符合基準，'❌' 表示版本不符合
     function compareVersion(currentVersion, baseVersion) {
-      if (!currentVersion) {
-        return '✅';
+      if (!currentVersion) return '✅';
+      return currentVersion < baseVersion ? '❌' : '✅';
+    }
+
+    // 對單筆資產進行版本與 KB 更新比對
+    function compareVersions(hostname, java8Base, java7Base, acrobatBase, kbList) {
+      const java8Val = document.getElementById('java8-' + hostname).innerText;
+      const java7Val = document.getElementById('java7-' + hostname).innerText;
+      const acrobatVal = document.getElementById('acrobat-' + hostname).innerText;
+      const winUpdateVal = document.getElementById('win-update-' + hostname).innerText;
+      
+      document.getElementById('java8-result-' + hostname).innerText = compareVersion(java8Val, java8Base);
+      document.getElementById('java7-result-' + hostname).innerText = compareVersion(java7Val, java7Base);
+      document.getElementById('acrobat-result-' + hostname).innerText = compareVersion(acrobatVal, acrobatBase);
+
+      // 比對 KB 更新，假設 kbList 為逗號分隔字串，檢查 winUpdateVal 是否包含每個 KB
+      let kbArray = kbList.split(',').map(s => s.trim());
+      let kbResult = '✅';
+      for (let kb of kbArray) {
+        if (!winUpdateVal.includes(kb)) {
+          kbResult = '❌';
+          break;
+        }
       }
-      if (currentVersion < baseVersion) {
-        return '❌';
-      } else {
-        return '✅';
-      }
+      document.getElementById('kb-result-' + hostname).innerText = kbResult;
     }
 
     // 比對所有版本
@@ -402,17 +454,22 @@
         return;
       }
 
-      {% for item in data %}
-        compareVersions('{{ item[0] }}', java8Base, java7Base, acrobatBase, kbList);
-      {% endfor %}
+      // 對每一筆資料進行比對
+      const rows = document.querySelectorAll('#data-table tbody tr');
+      rows.forEach(row => {
+        const hostname = row.id.replace('row-', '');
+        compareVersions(hostname, java8Base, java7Base, acrobatBase, kbList);
+      });
     }
 
     // 匯出為 Excel
     function exportToExcel() {
+      // 更新防毒軟體檢查欄位：根據下拉選單的值，設定顯示文字
       const rows = document.querySelectorAll('#data-table tbody tr');
       rows.forEach(row => {
         const antivirusSelect = row.querySelector('select');
         const antivirusStatus = antivirusSelect.value === 'updated' ? '已更新' : '未更新';
+        // 假設防毒軟體檢查欄位在第13個 td
         row.querySelector('td:nth-child(13)').innerText = antivirusStatus;
       });
 
@@ -420,6 +477,5 @@
       XLSX.writeFile(wb, 'system_info.xlsx');
     }
   </script>
-
 </body>
 </html>
