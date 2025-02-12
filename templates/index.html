@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>系統資訊資料</title>
+  <style>
+    /* 基本頁面樣式 */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f7fa;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      margin-top: 20px;
+      color: #444;
+    }
+    
+    /* 表格樣式 */
+    table {
+      width: 90%;
+      margin: 20px auto;
+      border-collapse: collapse;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      background-color: white;
+    }
+    table, th, td {
+      border: 1px solid #ddd;
+    }
+    th, td {
+      padding: 12px 15px;
+      text-align: left;
+    }
+    th {
+      background-color: #007bff;
+      color: white;
+      font-weight: bold;
+    }
+    tr:nth-child(even) {
+      background-color: #f2f2f2;
+    }
+    tr:hover {
+      background-color: #ddd;
+    }
+    
+    /* Modal 樣式 */
+    .modal {
+      display: none; 
+      position: fixed;
+      z-index: 1;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.4);
+      padding-top: 60px;
+    }
+    .modal-content {
+      background-color: #fefefe;
+      margin: 5% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 80%;
+      max-width: 500px;
+    }
+    .close {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+    }
+    .close:hover,
+    .close:focus {
+      color: black;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    
+    /* 按鈕樣式 */
+    button {
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background-color 0.3s ease;
+      margin: 5px;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    /* 其他用途的按鈕 */
+    .btn-danger {
+      background-color: #dc3545;
+    }
+    .btn-danger:hover {
+      background-color: #c82333;
+    }
+    .btn-success {
+      background-color: #28a745;
+    }
+    .btn-success:hover {
+      background-color: #218838;
+    }
+    .btn-secondary {
+      background-color: #6c757d;
+    }
+    .btn-secondary:hover {
+      background-color: #5a6268;
+    }
+    
+    /* 響應式設計 */
+    @media screen and (max-width: 768px) {
+      table {
+        width: 100%;
+        overflow-x: auto;
+        display: block;
+      }
+      th, td {
+        padding: 8px;
+      }
+      h1 {
+        font-size: 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>系統資訊資料</h1>
+
+  <!-- 基準版本設定區域 -->
+  <div style="text-align: center; margin-bottom: 20px;">
+    <h3>請輸入基準版本號：</h3>
+    <label>Java 8 基準版本：</label>
+    <input type="text" id="java8-base" placeholder="例如: 1.8.0_291">
+    <label>Java 7 基準版本：</label>
+    <input type="text" id="java7-base" placeholder="例如: 1.7.0_80">
+    <br><br>
+    <label>Acrobat 基準版本：</label>
+    <input type="text" id="acrobat-base" placeholder="例如: 2020.013.20074">
+    <label>KB 更新清單 (用逗號分隔)：</label>
+    <input type="text" id="kb-list" placeholder="例如: KB5001330, KB5001335">
+    <br><br>
+	  <button class="btn btn-primary" onclick="compareAllVersions()">比對所有版本</button>
+	  <button class="btn btn-secondary" onclick="exportToExcel()">導出為Excel</button>
+	  <button class="btn btn-success" onclick="openAddModal()">新增資產</button>
+  </div>
+
+  <table id="data-table">
+    <thead>
+      <tr>
+        <th>Hostname</th>
+        <th>IP 地址</th>
+        <th>Java 8 版本</th>
+        <th>Java 7 版本</th>
+        <th>Adobe Reader 版本</th>
+        <th>Acrobat 版本</th>
+        <th>Windows 更新</th>
+        <th>防毒軟體</th>
+        <th>Java 8 比對結果</th>
+        <th>Java 7 比對結果</th>
+        <th>Acrobat 比對結果</th>
+        <th>KB 更新結果</th>
+        <th>防毒軟體檢查</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if data %}
+        {% for item in data %}
+        <tr id="row-{{ item[0] }}">
+          <td>{{ item[0] }}</td>
+          <td>{{ item[1] }}</td>
+          <td id="java8-{{ item[0] }}">{{ item[2] }}</td>
+          <td id="java7-{{ item[0] }}">{{ item[3] }}</td>
+          <td>{{ item[4] }}</td>
+          <td id="acrobat-{{ item[0] }}">{{ item[5] }}</td>
+          <td id="win-update-{{ item[0] }}">{{ item[6] }}</td>
+          <td>{{ item[7] }}</td>
+          <td id="java8-result-{{ item[0] }}"></td>
+          <td id="java7-result-{{ item[0] }}"></td>
+          <td id="acrobat-result-{{ item[0] }}"></td>
+          <td id="kb-result-{{ item[0] }}"></td>
+          <td>
+            <select id="antivirus-check-{{ item[0] }}">
+              <option value="updated">已更新</option>
+              <option value="not-updated">未更新</option>
+            </select>
+          </td>
+          <td>
+            <button class="btn btn-success" onclick="openEditModal('{{ item[0] }}')">修改</button>
+            <button class="btn btn-danger" onclick="deleteData('{{ item[0] }}')">刪除</button>
+          </td>
+        </tr>
+        {% endfor %}
+      {% else %}
+        <tr>
+          <td colspan="14" style="text-align: center;">沒有資料可顯示</td>
+        </tr>
+      {% endif %}
+    </tbody>
+  </table>
+
+  <!-- Modal 視窗 -->
+  <div id="assetModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal()">&times;</span>
+      <h3>新增/修改資產</h3>
+      <label>Hostname：</label>
+      <input type="text" id="hostname" placeholder="例如: MyServer">
+      <br><br>
+      <label>IP 地址：</label>
+      <input type="text" id="ip-address" placeholder="例如: 192.168.1.1">
+      <br><br>
+      <label>Java 8 版本：</label>
+      <input type="text" id="java8-version" placeholder="例如: 1.8.0_291">
+      <br><br>
+      <label>Java 7 版本：</label>
+      <input type="text" id="java7-version" placeholder="例如: 1.7.0_80">
+      <br><br>
+      <label>Adobe Reader 版本：</label>
+      <input type="text" id="adobe-version" placeholder="例如: 2020.013.20074">
+      <br><br>
+      <label>Acrobat 版本：</label>
+      <input type="text" id="acrobat-version" placeholder="例如: 2020.013.20074">
+      <br><br>
+      <label>Windows 更新：</label>
+      <input type="text" id="winpatch-info" placeholder="例如: KB5001330">
+      <br><br>
+      <label>防毒軟體：</label>
+      <input type="text" id="antivirus-info" placeholder="例如: Windows Defender">
+      <br><br>
+      <button class="btn btn-primary" onclick="saveAsset()">儲存資產</button>
+    </div>
+  </div>
+
+  <!-- 載入 xlsx.js 套件 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.1/xlsx.full.min.js"></script>
+  <script>
+    // 顯示 Modal
+    const modal = document.getElementById('assetModal');
+
+    // 開啟新增資產 Modal
+    function openAddModal() {
+      document.getElementById('hostname').value = '';
+      document.getElementById('ip-address').value = '';
+      document.getElementById('java8-version').value = '';
+      document.getElementById('java7-version').value = '';
+      document.getElementById('adobe-version').value = '';
+      document.getElementById('acrobat-version').value = '';
+      document.getElementById('winpatch-info').value = '';
+      document.getElementById('antivirus-info').value = '';
+      modal.style.display = "block";
+    }
+
+    // 開啟修改資產 Modal
+    function openEditModal(hostname) {
+      const row = document.getElementById(`row-${hostname}`);
+      const cells = row.getElementsByTagName('td');
+      document.getElementById('hostname').value = cells[0].innerText;
+      document.getElementById('ip-address').value = cells[1].innerText;
+      document.getElementById('java8-version').value = cells[2].innerText;
+      document.getElementById('java7-version').value = cells[3].innerText;
+      document.getElementById('adobe-version').value = cells[4].innerText;
+      document.getElementById('acrobat-version').value = cells[5].innerText;
+      document.getElementById('winpatch-info').value = cells[6].innerText;
+      document.getElementById('antivirus-info').value = cells[7].innerText;
+      modal.style.display = "block";
+
+      // 更新資產
+      document.querySelector('button[onclick="saveAsset()"]').onclick = function() {
+        updateAsset(hostname);
+      };
+    }
+
+    // 儲存新增或修改資產
+    function saveAsset() {
+      const hostname = document.getElementById('hostname').value;
+      const ipAddress = document.getElementById('ip-address').value;
+      const java8Version = document.getElementById('java8-version').value;
+      const java7Version = document.getElementById('java7-version').value;
+      const adobeVersion = document.getElementById('adobe-version').value;
+      const acrobatVersion = document.getElementById('acrobat-version').value;
+      const winpatchInfo = document.getElementById('winpatch-info').value;
+      const antivirusInfo = document.getElementById('antivirus-info').value;
+
+      if (!hostname || !ipAddress) {
+        alert("請填寫必填欄位！");
+        return;
+      }
+
+      const data = {
+        hostname: hostname,
+        ip_addresses: [ipAddress],
+        java8_version: java8Version,
+        java7_version: java7Version,
+        adobe_reader_version: adobeVersion,
+        acrobat_version: acrobatVersion,
+        winpatch_info: winpatchInfo,
+        antivirus_info: antivirusInfo
+      };
+
+      fetch('/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.message) {
+          alert(data.message);
+          location.reload();
+        } else {
+          alert("新增資產失敗");
+        }
+      })
+      .catch(error => {
+        alert("新增資產時發生錯誤");
+      });
+
+      closeModal();
+    }
+
+    // 更新資產
+    function updateAsset(hostname) {
+      const ipAddress = document.getElementById('ip-address').value;
+      const java8Version = document.getElementById('java8-version').value;
+      const java7Version = document.getElementById('java7-version').value;
+      const adobeVersion = document.getElementById('adobe-version').value;
+      const acrobatVersion = document.getElementById('acrobat-version').value;
+      const winpatchInfo = document.getElementById('winpatch-info').value;
+      const antivirusInfo = document.getElementById('antivirus-info').value;
+
+      const data = {
+        ip_addresses: [ipAddress],
+        java8_version: java8Version,
+        java7_version: java7Version,
+        adobe_reader_version: adobeVersion,
+        acrobat_version: acrobatVersion,
+        winpatch_info: winpatchInfo,
+        antivirus_info: antivirusInfo
+      };
+
+      fetch(`/update/${hostname}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.message) {
+          alert(data.message);
+          location.reload();
+        } else {
+          alert("更新資產失敗");
+        }
+      })
+      .catch(error => {
+        alert("更新資產時發生錯誤");
+      });
+
+      closeModal();
+    }
+
+    // 關閉 Modal
+    function closeModal() {
+      modal.style.display = "none";
+    }
+
+    // 比對版本的函數
+    function compareVersion(currentVersion, baseVersion) {
+      if (!currentVersion) {
+        return '✅';
+      }
+      if (currentVersion < baseVersion) {
+        return '❌';
+      } else {
+        return '✅';
+      }
+    }
+
+    // 比對所有版本
+    function compareAllVersions() {
+      const java8Base = document.getElementById('java8-base').value;
+      const java7Base = document.getElementById('java7-base').value;
+      const acrobatBase = document.getElementById('acrobat-base').value;
+      const kbList = document.getElementById('kb-list').value;
+
+      if (!java8Base || !java7Base || !acrobatBase || !kbList) {
+        alert("請填寫所有基準版本號和KB清單！");
+        return;
+      }
+
+      {% for item in data %}
+        compareVersions('{{ item[0] }}', java8Base, java7Base, acrobatBase, kbList);
+      {% endfor %}
+    }
+
+    // 匯出為 Excel
+    function exportToExcel() {
+      const rows = document.querySelectorAll('#data-table tbody tr');
+      rows.forEach(row => {
+        const antivirusSelect = row.querySelector('select');
+        const antivirusStatus = antivirusSelect.value === 'updated' ? '已更新' : '未更新';
+        row.querySelector('td:nth-child(13)').innerText = antivirusStatus;
+      });
+
+      var wb = XLSX.utils.table_to_book(document.getElementById('data-table'), {sheet: "Sheet1"});
+      XLSX.writeFile(wb, 'system_info.xlsx');
+    }
+  </script>
+
+</body>
+</html>

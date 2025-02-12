@@ -1,0 +1,9 @@
+Hostname,IP Address,JAVA 8 Version,JAVA 7 Version,Adobe Reader Version,Acrobat Version,WinPatch Info,Antivirus Info
+4707-HW-T97,"['192.168.36.5', '172.25.64.1']",8.0.4410.7,,,24.005.20399,"Source        Description      HotFixID      InstalledBy          InstalledOn               
+------        -----------      --------      -----------          -----------               
+4707-HW-T97   Update           KB5050087     NT AUTHORITY\SYSTEM  2025/2/4 上午 12:00:00    
+4707-HW-T97   Update           KB5050091     NT AUTHORITY\SYSTEM  2025/2/4 上午 12:00:00    
+4707-HW-T97   Update           KB5050106     NT AUTHORITY\SYSTEM  2025/2/3 上午 12:00:00","displayName                              productState timestamp                    
+-----------                              ------------ ---------                    
+Cortex XDR? Advanced Endpoint Protection       266240 Wed, 05 Feb 2025 00:50:53 GMT
+Windows Defender                               393472 Tue, 01 Oct 2024 01:16:33 GMT"
