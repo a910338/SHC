@@ -46,9 +46,16 @@
       background-color: #ddd;
     }
     
+    /* tfoot 樣式 */
+    tfoot td {
+      font-weight: bold;
+      background-color: #e9ecef;
+      text-align: center;
+    }
+    
     /* Modal 樣式 */
     .modal {
-      display: none; 
+      display: none;
       position: fixed;
       z-index: 1;
       left: 0;
@@ -113,13 +120,30 @@
     .btn-secondary:hover {
       background-color: #5a6268;
     }
-    /* 按鈕容器 */
+    /* 橘色按鈕 */
+    .btn-orange {
+      background-color: #ff9800;
+    }
+    .btn-orange:hover {
+      background-color: #e68900;
+    }
+    /* 按鈕容器與分隔線 */
     .btn-container {
       display: flex;
       justify-content: center;
       align-items: center;
       gap: 20px;
       margin-bottom: 20px;
+    }
+    .btn-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .separator {
+      border-left: 2px solid #ccc;
+      height: 40px;
+      margin: 0 10px;
     }
     
     /* 響應式設計 */
@@ -135,6 +159,10 @@
       h1 {
         font-size: 22px;
       }
+      .separator {
+        height: 30px;
+        margin: 0 5px;
+      }
     }
   </style>
 </head>
@@ -146,7 +174,7 @@
   <div style="text-align: center; margin-bottom: 20px;">
     <h3>請輸入基準版本號：</h3>
     <label>Java 8 基準版本：</label>
-    <input type="text" id="java8-base" placeholder="例如: 1.8.0_291">
+    <input type="text" id="java8-base" placeholder="例如: 1.8.0_291 或 8.0.4410.7">
     <label>Java 7 基準版本：</label>
     <input type="text" id="java7-base" placeholder="例如: 1.7.0_80">
     <br><br>
@@ -158,9 +186,23 @@
 
   <!-- 按鈕容器 -->
   <div class="btn-container">
-    <button class="btn btn-primary" onclick="compareAllVersions()">比對所有版本</button>
-    <button class="btn btn-secondary" onclick="exportToExcel()">導出為Excel</button>
-    <button class="btn btn-success" onclick="openAddModal()">新增資產</button>
+    <!-- 第一組按鈕 -->
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="compareAllVersions()">比對所有版本</button>
+      <button class="btn btn-secondary" onclick="exportToExcel()">導出為Excel</button>
+      <button class="btn btn-success" onclick="openAddModal()">新增資產</button>
+    </div>
+    <!-- 分隔線 -->
+    <div class="separator"></div>
+    <!-- 第二組按鈕 (檔案匯入相關，使用橘色) -->
+    <div class="btn-group">
+      <!-- 隱藏的檔案輸入框 -->
+      <input type="file" id="import-file" accept=".csv, .xlsx, .xls" style="display:none;">
+      <button class="btn btn-orange" onclick="document.getElementById('import-file').click();">選擇檔案</button>
+      <!-- 顯示所選檔案名稱 -->
+      <span id="selected-file-name" style="margin-left:10px;"></span>
+      <button class="btn btn-orange" onclick="importAssets()">匯入資產</button>
+    </div>
   </div>
 
   <!-- 資料表格 -->
@@ -217,6 +259,16 @@
         </tr>
       {% endif %}
     </tbody>
+    <tfoot>
+      <tr id="summary-row">
+        <td colspan="8" style="text-align: center;">總計</td>
+        <td id="java8-summary"></td>
+        <td id="java7-summary"></td>
+        <td id="acrobat-summary"></td>
+        <td id="kb-summary"></td>
+        <td colspan="2"></td>
+      </tr>
+    </tfoot>
   </table>
 
   <!-- Modal 視窗：新增/修改資產 -->
@@ -231,7 +283,7 @@
       <input type="text" id="ip-address" placeholder="例如: 192.168.1.1">
       <br><br>
       <label>Java 8 版本：</label>
-      <input type="text" id="java8-version" placeholder="例如: 1.8.0_291">
+      <input type="text" id="java8-version" placeholder="例如: 1.8.0_291 或 8.0.4410.7">
       <br><br>
       <label>Java 7 版本：</label>
       <input type="text" id="java7-version" placeholder="例如: 1.7.0_80">
@@ -258,6 +310,54 @@
     // 取得 modal 元素
     const modal = document.getElementById('assetModal');
 
+    // 新增：從版本字串中提取 update 數值
+    function extractUpdate(version) {
+      if (!version) return 0;
+      // 若含底線，例如 "1.8.0_442"
+      if (version.indexOf('_') !== -1) {
+        let parts = version.split('_');
+        let update = parseInt(parts[1], 10);
+        return isNaN(update) ? 0 : update;
+      } else {
+        // 假設格式為 "8.0.4410.7"
+        let parts = version.split('.');
+        if (parts.length >= 3) {
+          // 取第三部分並只取前 3 個字元
+          let updateStr = parts[2].substring(0, 3);
+          let update = parseInt(updateStr, 10);
+          return isNaN(update) ? 0 : update;
+        }
+      }
+      return 0;
+    }
+
+    // 修改後的比對函數：根據 update 數值比較版本是否符合基準
+    function compareVersion(currentVersion, baseVersion) {
+      let currentUpdate = extractUpdate(currentVersion);
+      let baseUpdate = extractUpdate(baseVersion);
+      return currentUpdate >= baseUpdate ? '✅' : '❌';
+    }
+    
+    // 當使用者選擇檔案時，顯示檔案名稱與檢查格式
+    document.getElementById('import-file').addEventListener('change', function() {
+      const fileInput = this;
+      const file = fileInput.files[0];
+      const displaySpan = document.getElementById('selected-file-name');
+      
+      if (file) {
+        displaySpan.textContent = file.name;
+        const allowedExtensions = ['csv', 'xlsx', 'xls'];
+        const fileExtension = file.name.split('.').pop().toLowerCase();
+        if (!allowedExtensions.includes(fileExtension)) {
+          alert("檔案格式錯誤！僅允許 .csv, .xlsx, .xls 檔案。");
+          fileInput.value = "";
+          displaySpan.textContent = "";
+        }
+      } else {
+        displaySpan.textContent = "";
+      }
+    });
+    
     // 開啟新增資產 Modal
     function openAddModal() {
       document.getElementById('hostname').value = '';
@@ -268,11 +368,10 @@
       document.getElementById('acrobat-version').value = '';
       document.getElementById('winpatch-info').value = '';
       document.getElementById('antivirus-info').value = '';
-      // 新增模式下，設定儲存按鈕的 onclick 為 saveAsset
       document.querySelector('button[onclick="saveAsset()"]').onclick = saveAsset;
       modal.style.display = "block";
     }
-
+    
     // 開啟修改資產 Modal
     function openEditModal(hostname) {
       const row = document.getElementById(`row-${hostname}`);
@@ -286,12 +385,11 @@
       document.getElementById('winpatch-info').value = cells[6].innerText;
       document.getElementById('antivirus-info').value = cells[7].innerText;
       modal.style.display = "block";
-      // 修改模式下，設定儲存按鈕的 onclick 為 updateAsset，並傳入目前的 hostname
       document.querySelector('button[onclick="saveAsset()"]').onclick = function() {
         updateAsset(hostname);
       };
     }
-
+    
     // 儲存新增資產 (POST /upload)
     function saveAsset() {
       const hostname = document.getElementById('hostname').value;
@@ -302,12 +400,12 @@
       const acrobatVersion = document.getElementById('acrobat-version').value;
       const winpatchInfo = document.getElementById('winpatch-info').value;
       const antivirusInfo = document.getElementById('antivirus-info').value;
-
+      
       if (!hostname || !ipAddress) {
         alert("請填寫必填欄位！");
         return;
       }
-
+      
       const data = {
         hostname: hostname,
         ip_addresses: [ipAddress],
@@ -318,13 +416,11 @@
         winpatch_info: winpatchInfo,
         antivirus_info: antivirusInfo
       };
-
+      
       fetch('/upload', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
       })
       .then(response => response.json())
       .then(result => {
@@ -338,10 +434,10 @@
       .catch(error => {
         alert("新增資產時發生錯誤");
       });
-
+      
       closeModal();
     }
-
+    
     // 更新資產 (PUT /update/<hostname>)
     function updateAsset(hostname) {
       const ipAddress = document.getElementById('ip-address').value;
@@ -351,7 +447,7 @@
       const acrobatVersion = document.getElementById('acrobat-version').value;
       const winpatchInfo = document.getElementById('winpatch-info').value;
       const antivirusInfo = document.getElementById('antivirus-info').value;
-
+      
       const data = {
         ip_addresses: [ipAddress],
         java8_version: java8Version,
@@ -361,13 +457,11 @@
         winpatch_info: winpatchInfo,
         antivirus_info: antivirusInfo
       };
-
+      
       fetch(`/update/${hostname}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
       })
       .then(response => response.json())
       .then(result => {
@@ -381,10 +475,10 @@
       .catch(error => {
         alert("更新資產時發生錯誤");
       });
-
+      
       closeModal();
     }
-
+    
     // 刪除資產 (DELETE /delete/<hostname>)
     function deleteData(hostname) {
       if (!confirm("確定要刪除 " + hostname + " 的資產嗎？")) {
@@ -392,14 +486,11 @@
       }
       fetch(`/delete/${hostname}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        headers: { 'Content-Type': 'application/json' }
       })
       .then(response => response.json())
       .then(result => {
         alert(result.message || "刪除資產失敗");
-        // 刪除成功後，將該筆資料從畫面移除
         const row = document.getElementById('row-' + hostname);
         if (row) { row.remove(); }
       })
@@ -407,18 +498,12 @@
         alert("刪除資產時發生錯誤");
       });
     }
-
+    
     // 關閉 Modal
     function closeModal() {
       modal.style.display = "none";
     }
-
-    // 比對版本的函數，回傳 '✅' 表示符合基準，'❌' 表示版本不符合
-    function compareVersion(currentVersion, baseVersion) {
-      if (!currentVersion) return '✅';
-      return currentVersion < baseVersion ? '❌' : '✅';
-    }
-
+    
     // 對單筆資產進行版本與 KB 更新比對
     function compareVersions(hostname, java8Base, java7Base, acrobatBase, kbList) {
       const java8Val = document.getElementById('java8-' + hostname).innerText;
@@ -426,11 +511,15 @@
       const acrobatVal = document.getElementById('acrobat-' + hostname).innerText;
       const winUpdateVal = document.getElementById('win-update-' + hostname).innerText;
       
-      document.getElementById('java8-result-' + hostname).innerText = compareVersion(java8Val, java8Base);
-      document.getElementById('java7-result-' + hostname).innerText = compareVersion(java7Val, java7Base);
-      document.getElementById('acrobat-result-' + hostname).innerText = compareVersion(acrobatVal, acrobatBase);
-
-      // 比對 KB 更新，假設 kbList 為逗號分隔字串，檢查 winUpdateVal 是否包含每個 KB
+      const java8Result = compareVersion(java8Val, java8Base);
+      const java7Result = compareVersion(java7Val, java7Base);
+      const acrobatResult = compareVersion(acrobatVal, acrobatBase);
+      
+      document.getElementById('java8-result-' + hostname).innerText = java8Result;
+      document.getElementById('java7-result-' + hostname).innerText = java7Result;
+      document.getElementById('acrobat-result-' + hostname).innerText = acrobatResult;
+      
+      // 比對 KB 更新：檢查 winUpdateVal 是否包含所有指定 KB
       let kbArray = kbList.split(',').map(s => s.trim());
       let kbResult = '✅';
       for (let kb of kbArray) {
@@ -441,40 +530,92 @@
       }
       document.getElementById('kb-result-' + hostname).innerText = kbResult;
     }
-
-    // 比對所有版本
+    
+    // 比對所有版本並統計通過數量與百分比，更新 summary row
     function compareAllVersions() {
       const java8Base = document.getElementById('java8-base').value;
       const java7Base = document.getElementById('java7-base').value;
       const acrobatBase = document.getElementById('acrobat-base').value;
       const kbList = document.getElementById('kb-list').value;
-
+      
       if (!java8Base || !java7Base || !acrobatBase || !kbList) {
         alert("請填寫所有基準版本號和KB清單！");
         return;
       }
-
-      // 對每一筆資料進行比對
+      
+      // 取得 tbody 內所有資產列
       const rows = document.querySelectorAll('#data-table tbody tr');
       rows.forEach(row => {
         const hostname = row.id.replace('row-', '');
         compareVersions(hostname, java8Base, java7Base, acrobatBase, kbList);
       });
+      
+      // 統計各項通過數
+      let total = rows.length;
+      let java8Pass = 0, java7Pass = 0, acrobatPass = 0, kbPass = 0;
+      
+      rows.forEach(row => {
+        const hostname = row.id.replace('row-', '');
+        if (document.getElementById('java8-result-' + hostname).innerText === '✅') java8Pass++;
+        if (document.getElementById('java7-result-' + hostname).innerText === '✅') java7Pass++;
+        if (document.getElementById('acrobat-result-' + hostname).innerText === '✅') acrobatPass++;
+        if (document.getElementById('kb-result-' + hostname).innerText === '✅') kbPass++;
+      });
+      
+      let java8Percent = total > 0 ? Math.round((java8Pass / total) * 100) : 0;
+      let java7Percent = total > 0 ? Math.round((java7Pass / total) * 100) : 0;
+      let acrobatPercent = total > 0 ? Math.round((acrobatPass / total) * 100) : 0;
+      let kbPercent = total > 0 ? Math.round((kbPass / total) * 100) : 0;
+      
+      document.getElementById('java8-summary').innerText = `通過 ${java8Pass} / ${total} (${java8Percent}%)`;
+      document.getElementById('java7-summary').innerText = `通過 ${java7Pass} / ${total} (${java7Percent}%)`;
+      document.getElementById('acrobat-summary').innerText = `通過 ${acrobatPass} / ${total} (${acrobatPercent}%)`;
+      document.getElementById('kb-summary').innerText = `通過 ${kbPass} / ${total} (${kbPercent}%)`;
     }
-
+    
     // 匯出為 Excel
     function exportToExcel() {
-      // 更新防毒軟體檢查欄位：根據下拉選單的值，設定顯示文字
+      // 更新防毒軟體檢查欄位：依下拉選單設定顯示文字
       const rows = document.querySelectorAll('#data-table tbody tr');
       rows.forEach(row => {
         const antivirusSelect = row.querySelector('select');
         const antivirusStatus = antivirusSelect.value === 'updated' ? '已更新' : '未更新';
-        // 假設防毒軟體檢查欄位在第13個 td
         row.querySelector('td:nth-child(13)').innerText = antivirusStatus;
       });
-
+      
       var wb = XLSX.utils.table_to_book(document.getElementById('data-table'), {sheet: "Sheet1"});
       XLSX.writeFile(wb, 'system_info.xlsx');
+    }
+    
+    // 匯入資產功能
+    function importAssets() {
+      const fileInput = document.getElementById('import-file');
+      const file = fileInput.files[0];
+      if (!file) {
+        alert('請選擇要匯入的檔案');
+        return;
+      }
+      
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      fetch('/import', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(result => {
+        if (result.message) {
+          alert(result.message);
+          location.reload();
+        } else {
+          alert(result.error || '匯入資產失敗');
+        }
+      })
+      .catch(error => {
+        alert('匯入資產時發生錯誤');
+        console.error(error);
+      });
     }
   </script>
 </body>
